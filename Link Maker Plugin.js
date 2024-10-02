@@ -1,6 +1,4 @@
-/* Version 5
--Made All links/buttons None printing
-*/ 
+
 
 UVSR_selectiveFlatten = app.trustedFunction(function(oDoc) {
   app.beginPriv(); // Note we use trusted functions to get rid of the pesky "JavaScript Window" warnings.
