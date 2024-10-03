@@ -610,14 +610,15 @@ CreateLink = app.trustedFunction(function (oDoc) {
   app.alert("Link Maker Completed");
 });
 
-function createbookmarks() {
+function createbookmarks(oDoc) {
   var root = oDoc.bookmarkRoot.children[0];
+  var bkmarrp = [];
   for (var p = oDoc.numPages - 1; p >= 0; p--) {
-    oDoc.setPageAction({
+    this.setPageAction({
       nPage: p,
       cTrigger: "Open",
       cScript:
-        'oDoc.getField("Page").value = oDoc.getField("Page").value+",' +
+        'this.getField("Page").value = this.getField("Page").value+",' +
         p +
         '";',
     });
@@ -629,7 +630,7 @@ function createbookmarks() {
     Medi[0] = Medi[2] - Medi[2] / 15; //Adjust Left sid
     var q = Medi;
     var SearchBox;
-    m = new Matrix2D().fromRotated(oDoc, p);
+    m = new Matrix2D().fromRotated(this, p);
     if (rotation != 0) {
       SearchBox = q;
     } else {
@@ -643,60 +644,46 @@ function createbookmarks() {
       r[0] = r[2] - r[2] / 15; //Adjust Left sid
       SearchBox = r;
     }
-
     oDoc.syncAnnotScan();
     var annots = oDoc.getAnnots(p);
-    if (annots != null) {
-      var Hix = 10000;
-      var Hiannot = 0;
-      Hix = 10000;
-      Hiannot = 0;
-      for (var i = 0; i < annots.length; i++) {
-        var q = annots[i].rect;
+    for (var i = 0; i < annots.length; i++) {
+      var q = annots[i].rect;
 
-        m = new Matrix2D().fromRotated(oDoc, p);
-        mInv = m.invert();
-        r = mInv.transform(q);
-        r = r.toString();
-        var AnnotBox = r.split(",");
+      m = new Matrix2D().fromRotated(this, p);
+      mInv = m.invert();
+      r = mInv.transform(q);
+      r = r.toString();
+      var AnnotBox = r.split(",");
 
-        if (annots[i].contents.indexOf("E-1") !== -1 && p == 11) {
-          //oDoc.addField("SearchBox", "text", p, SearchBox);
-          // oDoc.addField("AnnotBox", "text", p, AnnotBox);
-          // console.println(SearchBox[0]+"<="+  AnnotBox[0]);
-          // console.println(SearchBox[1]+">="+  AnnotBox[1]);
-          // console.println(SearchBox[2]+">="+  AnnotBox[2]);
-          // console.println(SearchBox[3]+"<="+  AnnotBox[3]);
-        }
-        if (
-          AnnotBox[0] >= SearchBox[0] &&
-          AnnotBox[1] <= SearchBox[1] &&
-          AnnotBox[2] <= SearchBox[2] &&
-          AnnotBox[3] >= SearchBox[3] &&
-          annots[i].contents.indexOf("-") > -1 &&
-          annots[i].contents.length <= 9 &&
-          annots[i].contents.length > 2
-        ) {
-          /// oDoc.addField("SearchBox", "text", p, SearchBox);
-          //  oDoc.addField("AnnotBox", "text", p, AnnotBox);
+      if (
+        AnnotBox[0] >= SearchBox[0] &&
+        AnnotBox[1] <= SearchBox[1] &&
+        AnnotBox[2] <= SearchBox[2] &&
+        AnnotBox[3] >= SearchBox[3] &&
+        annots[i].contents.indexOf("-") > -1 &&
+        annots[i].contents.length <= 9 &&
+        annots[i].contents.length > 2
+      ) {
+        //this.addField("SearchBox", "text", p, SearchBox);
+        //this.addField("AnnotBox", "text", p, AnnotBox);
 
-          Hiannot = annots[i].contents;
+        Hiannot = annots[i].contents;
 
-          //console.println("Medi"+Medi+"Content"+annots[i].contents+"rectRotated"+rectRotated2);
-          //oDoc.addField("MyDateFld", "text", 0, Medi);
-        }
+        //console.println("Medi"+Medi+"Content"+annots[i].contents+"rectRotated"+rectRotated2);
+        //this.addField("MyDateFld", "text", 0, Medi);
       }
-      try {
-        {
-          root.createChild(Hiannot, "oDoc.pageNum=" + p);
-          bkmarrp[Hiannot] = p;
-        }
-      } catch (e) {
-        app.alert("Processing error: " + e);
+    }
+
+    try {
+      {
+        root.createChild(Hiannot, "this.pageNum=" + p);
+        bkmarrp[Hiannot] = p;
       }
-      return bkmarrp;
+    } catch (e) {
+      app.alert("Processing error: " + e);
     }
   }
+  return bkmarrp;
 }
 
 function destroybookmarks(oDoc) {
