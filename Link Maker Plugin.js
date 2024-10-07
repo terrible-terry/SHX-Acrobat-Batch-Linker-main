@@ -604,15 +604,76 @@ CreateLink = app.trustedFunction(function (oDoc) {
     "MyCode",
     'var pagelocations = this.addField("Page", "text", 0, [0,150,150,0]);pagelocations.display = display.hidden;'
   );
-  destroybookmarks(oDoc);
-  var BookmarkPage = createbookmarks(oDoc);
-  CheckAnnos(oDoc, BookmarkPage);
-  app.alert("Link Maker Completed");
+  getRectangleCoordinates(oDoc);
 });
+function getRectangleCoordinates(doc) {
+  var initialCoordinates = [100, 100, 200, 200]; // Initial position
+  var coordinates = [];
 
-function createbookmarks(oDoc) {
+  function pollForChanges(doc) {
+    if (typeof doc.selectedAnnots != "undefined") {
+      var rectAnnot = doc.selectedAnnots[0];
+
+      if (doc.selectedAnnots.length > 0) {
+        coordinates = rectAnnot.rect;
+      } else {
+        return false;
+      }
+
+      //return coordinates;
+      destroybookmarks(doc);
+      var BookmarkPage = createbookmarks(doc, coordinates);
+      var root = doc.bookmarkRoot.children[0];
+      var bookmarkNames = "";
+      for (var i = 0; i < root.children.length; i++) {
+        bookmarkNames += root.children[i].name + "\n"; // Collect bookmark names, each on a new line
+      }
+      // If the rectangle has been adjusted, confirm with the user
+      var confirmMsg =
+        "You have selected the following area:\n" +
+        "Bookmarks Created:\n\n" +
+        bookmarkNames +
+        "Do you want to proceed?";
+      var userResponse = app.alert(confirmMsg, 2, 2); // Yes and No buttons
+
+      if (userResponse == 4) {
+        // User clicked Yes
+        rectAnnot.destroy();
+        CheckAnnos(doc, BookmarkPage);
+        app.alert("Link Maker Completed");
+      } else {
+        app.alert("Rectangle selection canceled. Please try again.", 1);
+        return null;
+      }
+    } else {
+      var rectAnnot = doc.selectedAnnots;
+
+      rectAnnot = this.addAnnot({
+        type: "Square",
+        rect: initialCoordinates,
+        page: this.pageNum,
+        strokeColor: color.red,
+        fillColor: color.transparent,
+        author: "User",
+      });
+
+      rectAnnot.setProps({
+        readOnly: false,
+        hidden: false,
+      });
+      app.alert(
+        "No annotations selected! Place Rectangle over page name area, Rectanlge must be selected prior to running Create Links again"
+      );
+      return false;
+    }
+  }
+  // Start polling for changes
+  pollForChanges(doc);
+}
+function createbookmarks(oDoc, region) {
   var root = oDoc.bookmarkRoot.children[0];
   var bkmarrp = [];
+
   for (var p = oDoc.numPages - 1; p >= 0; p--) {
     this.setPageAction({
       nPage: p,
@@ -622,67 +683,89 @@ function createbookmarks(oDoc) {
         p +
         '";',
     });
+
+    // Adjust for page rotation and define the SearchBox region.
     var rotation = oDoc.getPageRotation(p);
-    var Medi = oDoc.getPageBox("Media", p);
-    Medi[1] = Medi[1]; //From Top
-    Medi[2] = Medi[2]; //From Right
-    Medi[3] = Medi[1] - Medi[1] / 15; //Adjust Bottom
-    Medi[0] = Medi[2] - Medi[2] / 15; //Adjust Left sid
-    var q = Medi;
+    var q = region;
     var SearchBox;
-    m = new Matrix2D().fromRotated(this, p);
+    var Hiannot;
+    var m = new Matrix2D().fromRotated(this, p);
+
     if (rotation != 0) {
-      SearchBox = q;
+      SearchBox = q; // Use the region as is for rotated pages
     } else {
-      mInv = m.invert();
-      r = mInv.transform(q);
-      r = r.toString();
-      r = r.split(",");
-      r[1] = r[1]; //From Top
-      r[2] = r[2]; //From Right
-      r[3] = r[1] - r[1] / 15; //Adjust Bottom
-      r[0] = r[2] - r[2] / 15; //Adjust Left sid
-      SearchBox = r;
+      var mInv = m.invert();
+      SearchBox = mInv.transform(q); // Transform the region according to page rotation
     }
+
     oDoc.syncAnnotScan();
     var annots = oDoc.getAnnots(p);
     for (var i = 0; i < annots.length; i++) {
-      var q = annots[i].rect;
+      var annotRect = annots[i].rect;
 
-      m = new Matrix2D().fromRotated(this, p);
+      // Apply transformation to annotation coordinates
       mInv = m.invert();
-      r = mInv.transform(q);
-      r = r.toString();
-      var AnnotBox = r.split(",");
+      var transformedAnnotBox = mInv.transform(annotRect).toString().split(",");
 
-      if (
-        AnnotBox[0] >= SearchBox[0] &&
-        AnnotBox[1] <= SearchBox[1] &&
-        AnnotBox[2] <= SearchBox[2] &&
-        AnnotBox[3] >= SearchBox[3] &&
-        annots[i].contents.indexOf("-") > -1 &&
-        annots[i].contents.length <= 9 &&
-        annots[i].contents.length > 2
-      ) {
-        //this.addField("SearchBox", "text", p, SearchBox);
-        //this.addField("AnnotBox", "text", p, AnnotBox);
+      // Apply transformation to the SearchBox again (if not done already)
+      var transformedSearchBox = mInv
+        .transform(SearchBox)
+        .toString()
+        .split(",");
+      var margin = 0; // You can adjust the margin value as needed
 
+      // Expand the SearchBox by adding a margin to each side
+      transformedSearchBox[0] = parseFloat(transformedSearchBox[0]) + margin; // Left
+      transformedSearchBox[1] = parseFloat(transformedSearchBox[1]) - margin; // Top
+      transformedSearchBox[2] = parseFloat(transformedSearchBox[2]) - margin; // Right
+      transformedSearchBox[3] = parseFloat(transformedSearchBox[3]) + margin; // Bottom
+      // Log the values for debugging
+
+      var XlowerBound = Math.min(
+        transformedSearchBox[0],
+        transformedSearchBox[2]
+      );
+      var XupperBound = Math.max(
+        transformedSearchBox[0],
+        transformedSearchBox[2]
+      );
+      var YlowerBound = Math.min(
+        transformedSearchBox[1],
+        transformedSearchBox[3]
+      );
+      var YupperBound = Math.max(
+        transformedSearchBox[1],
+        transformedSearchBox[3]
+      );
+      var true1 =
+        transformedAnnotBox[0] >= XlowerBound &&
+        transformedAnnotBox[0] <= XupperBound;
+      var true2 =
+        transformedAnnotBox[1] >= YlowerBound &&
+        transformedAnnotBox[1] <= YupperBound;
+      var true3 =
+        transformedAnnotBox[2] >= XlowerBound &&
+        transformedAnnotBox[2] <= XupperBound;
+      var true4 =
+        transformedAnnotBox[3] >= YlowerBound &&
+        transformedAnnotBox[3] <= YupperBound;
+
+      // Perform the comparison between transformed boxes
+      if (true1 && true2 && true3 && true4) {
         Hiannot = annots[i].contents;
-
-        //console.println("Medi"+Medi+"Content"+annots[i].contents+"rectRotated"+rectRotated2);
-        //this.addField("MyDateFld", "text", 0, Medi);
       }
     }
-
     try {
-      {
+      if (Hiannot) {
         root.createChild(Hiannot, "this.pageNum=" + p);
+        
         bkmarrp[Hiannot] = p;
       }
     } catch (e) {
       app.alert("Processing error: " + e);
     }
   }
+
   return bkmarrp;
 }
 
@@ -733,34 +816,35 @@ function CheckAnnos(oDoc, bkmarrp) {
 }
 
 function makelinks(bkmarr, p, annots, oDoc, bkmarrp, aMediaRect) {
-  var titlearea = aMediaRect[2] / 15;
-  for (var i = 0; i < annots.length; i++) {
-    if (annots[i].rect[3] >= titlearea) {
-      var ckWord = annots[i].contents;
-      if (ckWord.charAt(0) === "X") {
-        ckWord = ckWord.slice(1);
-        ckWord = ckWord.replace(/[A-Z]+$/, "");
-      }
-      if (bkmarr.indexOf(ckWord) > -1 && p !== bkmarrp[ckWord]) {
-        var q = annots[i].rect;
+  //var titlearea = aMediaRect[2] / 15;
 
-        m = new Matrix2D().fromRotated(this, p);
-        mInv = m.invert();
-        r = mInv.transform(q);
-        r = r.toString();
-        r = r.split(",");
-        var action =
-          'getField("GoBack' +
-          bkmarrp[ckWord] +
-          '").setFocus();this.zoomType =zoomtype.fitP';
-        var f = oDoc.addField(ckWord + i + p, "button", p, r);
-        f.fillColor = color.transparent;
-        f.lineWidth = 1;
-        f.strokeColor = color.red;
-        f.display = display.noPrint;
-        f.setAction("MouseUp", action);
-      }
+  for (var i = 0; i < annots.length; i++) {
+    //  if (annots[i].rect[3] >= titlearea) {
+    var ckWord = annots[i].contents;
+    if (ckWord.charAt(0) === "X") {
+      ckWord = ckWord.slice(1);
+      ckWord = ckWord.replace(/[A-Z]+$/, "");
     }
+    if (bkmarr.indexOf(ckWord) > -1 && p !== bkmarrp[ckWord]) {
+      var q = annots[i].rect;
+
+      m = new Matrix2D().fromRotated(this, p);
+      mInv = m.invert();
+      r = mInv.transform(q);
+      r = r.toString();
+      r = r.split(",");
+      var action =
+        'getField("GoBack' +
+        bkmarrp[ckWord] +
+        '").setFocus();this.zoomType =zoomtype.fitP';
+      var f = oDoc.addField(ckWord + i + p, "button", p, r);
+      f.fillColor = color.transparent;
+      f.lineWidth = 1;
+      f.strokeColor = color.red;
+      f.display = display.noPrint;
+      f.setAction("MouseUp", action);
+    }
+    //}
     annots[i].destroy();
   }
 }
