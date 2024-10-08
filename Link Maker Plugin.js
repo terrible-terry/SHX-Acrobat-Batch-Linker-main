@@ -606,6 +606,95 @@ CreateLink = app.trustedFunction(function (oDoc) {
   );
   getRectangleCoordinates(oDoc);
 });
+var isCancelled = false; 
+var Gbkmarr = [];
+var Gbkmarrp = [];
+var Gbkm ;
+var GParentoDoc;
+var GtotalPages;
+var Gprogress ;
+var progressDialog ={
+
+  initialize: function (dialog) {
+      // Create a static text containing the current date.
+      var todayDate = dialog.store()["date"];
+      todayDate = "Date: " + util.printd("mmmm dd, yyyy", new Date());
+      dialog.load({ "date": todayDate });
+  },
+  commit:function (dialog) { // called when OK pressed
+      var results = dialog.store();
+      // Now do something with the data collected, for example,
+      console.println("Your name is " + results["fnam"]
+          + " " + results["lnam"] );
+  },
+  description:
+  {
+      name: "Personal Data",    // Dialog box title
+      align_children: "align_left",
+      width: 350,
+      height: 200,
+      elements:
+      [
+          {
+              type: "cluster",
+              name: "Your Name",
+              align_children: "align_left",
+              elements:
+              [
+                  {
+                      type: "view",
+                      align_children: "align_row",
+                      elements:
+                      [
+                          {
+                              type: "static_text",
+                              name: "First Name: "
+                          },
+                          {
+                              item_id: "fnam",
+                              type: "edit_text",
+                              alignment: "align_fill",
+                              width: 300,
+                              height: 20
+                          }
+                      ]
+                  },
+                  {
+                      type: "view",
+                      align_children: "align_row",
+                      elements:
+                      [
+                          {
+                              type: "static_text",
+                              name: "Last Name: "
+                          },
+                          {
+                              item_id: "lnam",
+                              type: "edit_text",
+                              alignment: "align_fill",
+                              width: 300,
+                              height: 20
+                          }
+                      ]
+                  },
+                  {
+                      type: "static_text",
+                      name: "Date: ",
+                      char_width: 25,
+                      item_id: "date"
+                  },
+              ]
+          },
+          {
+              alignment: "align_right",
+              type: "ok_cancel",
+              ok_name: "Ok",
+              cancel_name: "Cancel"
+          }
+      ]
+  }
+};
+
 function getRectangleCoordinates(doc) {
   var initialCoordinates = [100, 100, 200, 200]; // Initial position
   var coordinates = [];
@@ -622,12 +711,34 @@ function getRectangleCoordinates(doc) {
 
       //return coordinates;
       destroybookmarks(doc);
-      var BookmarkPage = createbookmarks(doc, coordinates);
+      var BookmarkPage = createbookmarks(doc, coordinates, rectAnnot);
       var root = doc.bookmarkRoot.children[0];
       var bookmarkNames = "";
-      for (var i = 0; i < root.children.length; i++) {
-        bookmarkNames += root.children[i].name + "\n"; // Collect bookmark names, each on a new line
-      }
+      ////////////////
+var numColumns = 5; // Number of columns in the grid
+var totalBookmarks = root.children.length;
+var columnBookmarks = [];
+var columnWidth = Math.ceil(totalBookmarks / numColumns); // Calculate how many bookmarks to place in each column
+
+// Create columns
+for (var col = 0; col < numColumns; col++) {
+    columnBookmarks[col] = ""; // Initialize each column
+    for (var i = col * columnWidth; i < (col + 1) * columnWidth && i < totalBookmarks; i++) {
+        columnBookmarks[col] += root.children[i].name + "\n"; // Add bookmark names to each column
+    }
+}
+
+// Combine columns into a grid format
+for (var row = 0; row < columnWidth; row++) {
+    for (var col = 0; col < numColumns; col++) {
+        var bookmarkInThisColumn = columnBookmarks[col].split("\n")[row];
+        if (bookmarkInThisColumn) {
+            bookmarkNames += bookmarkInThisColumn + "\t"; // Add tabs for spacing
+        }
+    }
+    bookmarkNames += "\n"; // New row after each set of bookmarks
+}
+
       // If the rectangle has been adjusted, confirm with the user
       var confirmMsg =
         "You have selected the following area:\n" +
@@ -639,8 +750,11 @@ function getRectangleCoordinates(doc) {
       if (userResponse == 4) {
         // User clicked Yes
         rectAnnot.destroy();
-        CheckAnnos(doc, BookmarkPage);
-        app.alert("Link Maker Completed");
+   
+          CheckAnnos(doc);
+ 
+       
+        
       } else {
         app.alert("Rectangle selection canceled. Please try again.", 1);
         return null;
@@ -670,9 +784,9 @@ function getRectangleCoordinates(doc) {
   // Start polling for changes
   pollForChanges(doc);
 }
-function createbookmarks(oDoc, region) {
+function createbookmarks(oDoc, region, rectAnnot) {
   var root = oDoc.bookmarkRoot.children[0];
-  var bkmarrp = [];
+  Gbkmarrp = [];
 
   for (var p = oDoc.numPages - 1; p >= 0; p--) {
     this.setPageAction({
@@ -701,6 +815,10 @@ function createbookmarks(oDoc, region) {
     oDoc.syncAnnotScan();
     var annots = oDoc.getAnnots(p);
     for (var i = 0; i < annots.length; i++) {
+      if (isCancelled) {
+        app.alert("Process cancelled.");
+        break;
+    }
       var annotRect = annots[i].rect;
 
       // Apply transformation to annotation coordinates
@@ -737,6 +855,7 @@ function createbookmarks(oDoc, region) {
         transformedSearchBox[1],
         transformedSearchBox[3]
       );
+
       var true1 =
         transformedAnnotBox[0] >= XlowerBound &&
         transformedAnnotBox[0] <= XupperBound;
@@ -752,21 +871,23 @@ function createbookmarks(oDoc, region) {
 
       // Perform the comparison between transformed boxes
       if (true1 && true2 && true3 && true4) {
-        Hiannot = annots[i].contents;
+        if (rectAnnot != annots[i]) {
+          Hiannot = annots[i].contents;
+        }
       }
     }
+
     try {
       if (Hiannot) {
         root.createChild(Hiannot, "this.pageNum=" + p);
-        
-        bkmarrp[Hiannot] = p;
+        Gbkmarrp[Hiannot] = p;
       }
     } catch (e) {
       app.alert("Processing error: " + e);
     }
   }
 
-  return bkmarrp;
+  return Gbkmarrp;
 }
 
 function destroybookmarks(oDoc) {
@@ -779,72 +900,96 @@ function destroybookmarks(oDoc) {
   }
 }
 
-function CheckAnnos(oDoc, bkmarrp) {
-  var bkmarr = [];
-  var bkm = oDoc.bookmarkRoot.children[0].children;
-  for (var p = 0; p < oDoc.numPages; p++) {
-    var aMediaRect = oDoc.getPageBox("Media", p);
-    oDoc.syncAnnotScan();
-    var annots = oDoc.getAnnots(p);
-    for (var i = 0; i < bkm.length; i++) {
-      bkmarr.push(bkm[i].name);
+
+function CheckAnnos(oDoc) {
+  Gbkmarr = [];
+  Gbkm = oDoc.bookmarkRoot.children[0].children;
+  GtotalPages = oDoc.numPages;
+  Gprogress = { currentPage: 0, totalPages: GtotalPages };
+  GParentoDoc = oDoc;
+  // Use a string to call processPage to ensure it's accessible
+  ///app.setTimeOut("processPage();", 50);
+  for (var i = 0; i < Gbkm.length; i++) {
+    Gbkmarr.push(Gbkm[i].name);
+}
+  processPage(); // Start processing from page 0
+}
+function processPage() {
+  try {
+  var pageNumber =Gprogress.currentPage;
+
+  
+    if (pageNumber >= GtotalPages) {
+        ///dialog.destroy();
+        app.alert("Link Maker Completed");
+        return;
     }
 
-    makelinks(bkmarr, p, annots, oDoc, bkmarrp, aMediaRect);
-    var t = oDoc.addField("GoBack" + p, "button", p, [0, 18, 75, 0]);
-    t.buttonSetCaption("Go Back");
-    t.fillColor = color.yellow;
-    t.lineWidth = 1;
-    t.strokeColor = color.blue;
+    var aMediaRect = GParentoDoc.getPageBox("Media", pageNumber);
+    GParentoDoc.syncAnnotScan();
+    var annots = GParentoDoc.getAnnots(pageNumber);
+    makelinks(Gbkmarr, pageNumber, annots, GParentoDoc, Gbkmarrp, aMediaRect);
 
-    t.display = display.noPrint;
-    t.setAction(
-      "MouseUp",
-      ' if(getField("Page").value.split(",").length >=3){this.getField("GoBack"+getField("Page").value.split(",")[getField("Page").value.split(",").length -2]).setFocus();  this.zoomType =zoomtype.fitP; getField("Page").value = getField("Page").value.split(",").splice(0,getField("Page").value.split(",").length-2).join(",")}else{app.alert("Cannot Go Further Back")}'
-    );
-    var k = oDoc.addField("Top" + p, "button", p, [85, 18, 160, 0]);
-    k.buttonSetCaption("Top");
-    k.fillColor = color.yellow;
-    k.lineWidth = 1;
-    k.strokeColor = color.blue;
-    k.display = display.noPrint;
-    k.setAction(
-      "MouseUp",
-      'getField("GoBack0").setFocus();this.zoomType =zoomtype.fitP'
-    );
+
+  }catch (e) {
+    console.println("An error occurred on page " + pageNumber + ": " + e.message);
+      app.alert("An error occurred on page " + pageNumber + ": " + e.message);
   }
 }
 
 function makelinks(bkmarr, p, annots, oDoc, bkmarrp, aMediaRect) {
-  //var titlearea = aMediaRect[2] / 15;
-
+  try{
+    console.println(p+" of "+Gprogress.totalPages);
   for (var i = 0; i < annots.length; i++) {
-    //  if (annots[i].rect[3] >= titlearea) {
-    var ckWord = annots[i].contents;
-    if (ckWord.charAt(0) === "X") {
-      ckWord = ckWord.slice(1);
-      ckWord = ckWord.replace(/[A-Z]+$/, "");
-    }
-    if (bkmarr.indexOf(ckWord) > -1 && p !== bkmarrp[ckWord]) {
-      var q = annots[i].rect;
-
-      m = new Matrix2D().fromRotated(this, p);
-      mInv = m.invert();
-      r = mInv.transform(q);
-      r = r.toString();
-      r = r.split(",");
-      var action =
-        'getField("GoBack' +
-        bkmarrp[ckWord] +
-        '").setFocus();this.zoomType =zoomtype.fitP';
-      var f = oDoc.addField(ckWord + i + p, "button", p, r);
-      f.fillColor = color.transparent;
-      f.lineWidth = 1;
-      f.strokeColor = color.red;
-      f.display = display.noPrint;
-      f.setAction("MouseUp", action);
-    }
-    //}
-    annots[i].destroy();
+      var ckWord = annots[i].contents;
+      if (ckWord.charAt(0) === "X") {
+          ckWord = ckWord.slice(1);
+          ckWord = ckWord.replace(/[A-Z]+$/, "");
+      }
+      if (bkmarr.indexOf(ckWord) > -1 && p !== bkmarrp[ckWord]) {
+          var q = annots[i].rect;
+          var m = new Matrix2D().fromRotated(this, p);
+          var mInv = m.invert();
+          var r = mInv.transform(q).toString().split(",");
+          var action = 'getField("GoBack' + bkmarrp[ckWord] + '").setFocus();this.zoomType = zoomtype.fitP';
+          var f = oDoc.addField(ckWord + i + p, "button", p, r);
+          f.fillColor = color.transparent;
+          f.lineWidth = 1;
+          f.strokeColor = color.red;
+          f.display = display.noPrint;
+          f.setAction("MouseUp", action);
+      }
+      annots[i].destroy();
   }
+
+  var t = oDoc.addField("GoBack" + p, "button", p, [0, 18, 75, 0]);
+  t.buttonSetCaption("Go Back");
+  t.fillColor = color.yellow;
+  t.lineWidth = 1;
+  t.strokeColor = color.blue;
+  t.display = display.noPrint;
+  t.setAction(
+      "MouseUp",
+      'if(getField("Page").value.split(",").length >=3){this.getField("GoBack"+getField("Page").value.split(",")[getField("Page").value.split(",").length -2]).setFocus(); this.zoomType = zoomtype.fitP; getField("Page").value = getField("Page").value.split(",").splice(0,getField("Page").value.split(",").length-2).join(",")} else {app.alert("Cannot Go Further Back")}'
+  );
+
+  var k = oDoc.addField("Top" + p, "button", p, [85, 18, 160, 0]);
+  k.buttonSetCaption("Top");
+  k.fillColor = color.yellow;
+  k.lineWidth = 1;
+  k.strokeColor = color.blue;
+  k.display = display.noPrint;
+  k.setAction("MouseUp", 'getField("GoBack0").setFocus(); this.zoomType = zoomtype.fitP');
+
+  Gprogress.currentPage++;
+
+
+  // Schedule the next page processing
+  //app.setTimeOut("processPage()", 5);
+
+  processPage();
+
+}catch (e) {
+  console.println("An error occurred on page " + p + ": " + e.message);
+}
 }
