@@ -606,94 +606,140 @@ CreateLink = app.trustedFunction(function (oDoc) {
   );
   getRectangleCoordinates(oDoc);
 });
-var isCancelled = false; 
+var isCancelled = false;
 var Gbkmarr = [];
 var Gbkmarrp = [];
-var Gbkm ;
+var Gbkm;
 var GParentoDoc;
 var GtotalPages;
-var Gprogress ;
-var progressDialog ={
+var Gprogress;
 
-  initialize: function (dialog) {
-      // Create a static text containing the current date.
-      var todayDate = dialog.store()["date"];
-      todayDate = "Date: " + util.printd("mmmm dd, yyyy", new Date());
-      dialog.load({ "date": todayDate });
-  },
-  commit:function (dialog) { // called when OK pressed
-      var results = dialog.store();
-      // Now do something with the data collected, for example,
-      console.println("Your name is " + results["fnam"]
-          + " " + results["lnam"] );
-  },
-  description:
-  {
-      name: "Personal Data",    // Dialog box title
-      align_children: "align_left",
-      width: 350,
-      height: 200,
-      elements:
-      [
-          {
+var userOptions = {};
+function showOptionsDialog() {
+  var listpop3 = {
+    "Keep Annots": -1,
+    "Delete All Annots": -1,
+  };
+  
+  var listpop4 = {
+    "blue": -1,
+    "red": -1,
+    "green": -1,
+  };
+  
+  var optionsDialog = {
+    result: "cancel",
+    strpop1: "",
+    strpop2: "",
+  
+    DoDialog: function () {
+      return app.execDialog(this);
+    },
+  
+    initialize: function (dialog) {
+      var dlgInit = {
+        pop1: listpop3,
+        pop2: listpop4,
+      };
+      dialog.load(dlgInit);
+    },
+  
+    commit: function (dialog) {
+      var oRslt = dialog.store();
+
+ 
+      for (var key in oRslt.pop2) {
+        if (oRslt.pop2[key] === 1) {
+          this.strpop2 = key;
+          break;
+        }
+      }
+      for (var key in oRslt.pop1) {
+        if (oRslt.pop1[key] === 1) {
+          this.strpop1 = key;
+          break;
+        }
+      }
+
+      // Setting the result to indicate dialog was submitted
+      this.result = "ok";
+      
+    },
+  
+    description: {
+      name: "Link Options",
+      elements: [
+        {
+          type: "view",
+          elements: [
+            {
               type: "cluster",
-              name: "Your Name",
-              align_children: "align_left",
-              elements:
-              [
-                  {
-                      type: "view",
-                      align_children: "align_row",
-                      elements:
-                      [
-                          {
-                              type: "static_text",
-                              name: "First Name: "
-                          },
-                          {
-                              item_id: "fnam",
-                              type: "edit_text",
-                              alignment: "align_fill",
-                              width: 300,
-                              height: 20
-                          }
-                      ]
-                  },
-                  {
-                      type: "view",
-                      align_children: "align_row",
-                      elements:
-                      [
-                          {
-                              type: "static_text",
-                              name: "Last Name: "
-                          },
-                          {
-                              item_id: "lnam",
-                              type: "edit_text",
-                              alignment: "align_fill",
-                              width: 300,
-                              height: 20
-                          }
-                      ]
-                  },
-                  {
-                      type: "static_text",
-                      name: "Date: ",
-                      char_width: 25,
-                      item_id: "date"
-                  },
-              ]
-          },
-          {
-              alignment: "align_right",
-              type: "ok_cancel",
-              ok_name: "Ok",
-              cancel_name: "Cancel"
-          }
-      ]
-  }
-};
+              item_id: "cls1",
+              char_width: 8,
+              char_height: 8,
+              font: "dialog",
+              bold: true,
+              elements: [
+                {
+                  type: "static_text",
+                  name: "Keep Annots After Linking",
+                  alignment: "align_left",
+                  width: 200 // Adjust width to provide enough space
+                },
+                {
+                  type: "popup",
+                  item_id: "pop1",
+                  width: 118,
+                  height: 23,
+                  char_width: 8,
+                  items: Object.keys(listpop3),
+                },
+                {
+                  type: "static_text",
+                  name: "Select Color Of Links",
+                  alignment: "align_left",
+                  width: 200 // Adjust width to provide enough space
+                },
+                {
+                  type: "popup",
+                  item_id: "pop2",
+                  width: 117,
+                  height: 23,
+                  char_width: 8,
+                  items: Object.keys(listpop4),
+                },
+                {
+                  type: "view",
+                  width: 72,
+                  height: 27,
+                  char_width: 8,
+                  char_height: 8,
+                  alignment: "align_center",
+                  elements: [
+                    {
+                      type: "ok_cancel",
+                      font: "dialog",
+                      bold: true,
+                      ok_name: "OK",
+                      cancel_name: "CANCEL",
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  };
+
+  // Display the dialog
+  var dialogResult = optionsDialog.DoDialog();
+
+
+  return [dialogResult === "ok",optionsDialog]; // Return true if the user pressed OK
+}
+
 
 function getRectangleCoordinates(doc) {
   var initialCoordinates = [100, 100, 200, 200]; // Initial position
@@ -712,32 +758,38 @@ function getRectangleCoordinates(doc) {
       //return coordinates;
       destroybookmarks(doc);
       var BookmarkPage = createbookmarks(doc, coordinates, rectAnnot);
+  
+      if(BookmarkPage != "NOANNOTS"){
       var root = doc.bookmarkRoot.children[0];
       var bookmarkNames = "";
       ////////////////
-var numColumns = 5; // Number of columns in the grid
-var totalBookmarks = root.children.length;
-var columnBookmarks = [];
-var columnWidth = Math.ceil(totalBookmarks / numColumns); // Calculate how many bookmarks to place in each column
+      var numColumns = 5; // Number of columns in the grid
+      var totalBookmarks = root.children.length;
+      var columnBookmarks = [];
+      var columnWidth = Math.ceil(totalBookmarks / numColumns); // Calculate how many bookmarks to place in each column
 
-// Create columns
-for (var col = 0; col < numColumns; col++) {
-    columnBookmarks[col] = ""; // Initialize each column
-    for (var i = col * columnWidth; i < (col + 1) * columnWidth && i < totalBookmarks; i++) {
-        columnBookmarks[col] += root.children[i].name + "\n"; // Add bookmark names to each column
-    }
-}
-
-// Combine columns into a grid format
-for (var row = 0; row < columnWidth; row++) {
-    for (var col = 0; col < numColumns; col++) {
-        var bookmarkInThisColumn = columnBookmarks[col].split("\n")[row];
-        if (bookmarkInThisColumn) {
-            bookmarkNames += bookmarkInThisColumn + "\t"; // Add tabs for spacing
+      // Create columns
+      for (var col = 0; col < numColumns; col++) {
+        columnBookmarks[col] = ""; // Initialize each column
+        for (
+          var i = col * columnWidth;
+          i < (col + 1) * columnWidth && i < totalBookmarks;
+          i++
+        ) {
+          columnBookmarks[col] += root.children[i].name + "\n"; // Add bookmark names to each column
         }
-    }
-    bookmarkNames += "\n"; // New row after each set of bookmarks
-}
+      }
+
+      // Combine columns into a grid format
+      for (var row = 0; row < columnWidth; row++) {
+        for (var col = 0; col < numColumns; col++) {
+          var bookmarkInThisColumn = columnBookmarks[col].split("\n")[row];
+          if (bookmarkInThisColumn) {
+            bookmarkNames += bookmarkInThisColumn + "\t"; // Add tabs for spacing
+          }
+        }
+        bookmarkNames += "\n"; // New row after each set of bookmarks
+      }
 
       // If the rectangle has been adjusted, confirm with the user
       var confirmMsg =
@@ -746,19 +798,29 @@ for (var row = 0; row < columnWidth; row++) {
         bookmarkNames +
         "Do you want to proceed?";
       var userResponse = app.alert(confirmMsg, 2, 2); // Yes and No buttons
-
       if (userResponse == 4) {
         // User clicked Yes
-        rectAnnot.destroy();
-   
-          CheckAnnos(doc);
- 
+
+        var dialogConfirmed = showOptionsDialog();
        
-        
+        if (dialogConfirmed[0]) {
+          
+          for (var i = this.numFields - 1; i >= 0; i--) {
+            
+            var fieldName = this.getNthFieldName(i);
+            var field = this.getField(fieldName);
+            if (field && field.type === "button") {
+                this.removeField(fieldName);
+            }
+        }
+            rectAnnot.destroy();
+            CheckAnnos(doc,dialogConfirmed[1]);
+  
+        }else{   return null;}
       } else {
         app.alert("Rectangle selection canceled. Please try again.", 1);
         return null;
-      }
+      }}
     } else {
       var rectAnnot = doc.selectedAnnots;
 
@@ -812,15 +874,17 @@ function createbookmarks(oDoc, region, rectAnnot) {
       SearchBox = mInv.transform(q); // Transform the region according to page rotation
     }
 
-    oDoc.syncAnnotScan();
+    oDoc.syncAnnotScan(); 
+
     var annots = oDoc.getAnnots(p);
+    if(!annots){app.alert("There are no Annots in the document"); return "NOANNOTS";}
     for (var i = 0; i < annots.length; i++) {
       if (isCancelled) {
         app.alert("Process cancelled.");
-        break;
-    }
+        return false;
+      }
       var annotRect = annots[i].rect;
-
+  
       // Apply transformation to annotation coordinates
       mInv = m.invert();
       var transformedAnnotBox = mInv.transform(annotRect).toString().split(",");
@@ -838,7 +902,7 @@ function createbookmarks(oDoc, region, rectAnnot) {
       transformedSearchBox[2] = parseFloat(transformedSearchBox[2]) - margin; // Right
       transformedSearchBox[3] = parseFloat(transformedSearchBox[3]) + margin; // Bottom
       // Log the values for debugging
-
+    
       var XlowerBound = Math.min(
         transformedSearchBox[0],
         transformedSearchBox[2]
@@ -879,14 +943,17 @@ function createbookmarks(oDoc, region, rectAnnot) {
 
     try {
       if (Hiannot) {
+       
         root.createChild(Hiannot, "this.pageNum=" + p);
         Gbkmarrp[Hiannot] = p;
       }
     } catch (e) {
+   
       app.alert("Processing error: " + e);
+      return false;
     }
   }
-
+ 
   return Gbkmarrp;
 }
 
@@ -900,96 +967,95 @@ function destroybookmarks(oDoc) {
   }
 }
 
-
-function CheckAnnos(oDoc) {
+function CheckAnnos(oDoc,options) {
   Gbkmarr = [];
   Gbkm = oDoc.bookmarkRoot.children[0].children;
   GtotalPages = oDoc.numPages;
   Gprogress = { currentPage: 0, totalPages: GtotalPages };
   GParentoDoc = oDoc;
-  // Use a string to call processPage to ensure it's accessible
-  ///app.setTimeOut("processPage();", 50);
+
   for (var i = 0; i < Gbkm.length; i++) {
     Gbkmarr.push(Gbkm[i].name);
+  }
+  processPage(options); // Start processing from page 0
 }
-  processPage(); // Start processing from page 0
-}
-function processPage() {
+function processPage(options) {
   try {
-  var pageNumber =Gprogress.currentPage;
+    var pageNumber = Gprogress.currentPage;
 
-  
     if (pageNumber >= GtotalPages) {
-        ///dialog.destroy();
-        app.alert("Link Maker Completed");
-        return;
+      app.alert("Link Maker Completed");
+      return;
     }
 
-    var aMediaRect = GParentoDoc.getPageBox("Media", pageNumber);
     GParentoDoc.syncAnnotScan();
     var annots = GParentoDoc.getAnnots(pageNumber);
-    makelinks(Gbkmarr, pageNumber, annots, GParentoDoc, Gbkmarrp, aMediaRect);
-
-
-  }catch (e) {
-    console.println("An error occurred on page " + pageNumber + ": " + e.message);
-      app.alert("An error occurred on page " + pageNumber + ": " + e.message);
+    makelinks(Gbkmarr, pageNumber, annots, GParentoDoc, Gbkmarrp,options);
+  } catch (e) {
+    console.println(
+      "An error occurred on page " + pageNumber + ": " + e.message
+    );
+    app.alert("An error occurred on page " + pageNumber + ": " + e.message);
   }
 }
 
-function makelinks(bkmarr, p, annots, oDoc, bkmarrp, aMediaRect) {
-  try{
-    console.println(p+" of "+Gprogress.totalPages);
-  for (var i = 0; i < annots.length; i++) {
+function makelinks(bkmarr, p, annots, oDoc, bkmarrp, options) {
+  try {
+    for (var i = 0; i < annots.length; i++) {
       var ckWord = annots[i].contents;
       if (ckWord.charAt(0) === "X") {
-          ckWord = ckWord.slice(1);
-          ckWord = ckWord.replace(/[A-Z]+$/, "");
+        ckWord = ckWord.slice(1);
+        ckWord = ckWord.replace(/[A-Z]+$/, "");
       }
       if (bkmarr.indexOf(ckWord) > -1 && p !== bkmarrp[ckWord]) {
-          var q = annots[i].rect;
-          var m = new Matrix2D().fromRotated(this, p);
-          var mInv = m.invert();
-          var r = mInv.transform(q).toString().split(",");
-          var action = 'getField("GoBack' + bkmarrp[ckWord] + '").setFocus();this.zoomType = zoomtype.fitP';
-          var f = oDoc.addField(ckWord + i + p, "button", p, r);
-          f.fillColor = color.transparent;
-          f.lineWidth = 1;
-          f.strokeColor = color.red;
-          f.display = display.noPrint;
-          f.setAction("MouseUp", action);
+        var q = annots[i].rect;
+        var m = new Matrix2D().fromRotated(this, p);
+        var mInv = m.invert();
+        var r = mInv.transform(q).toString().split(",");
+        var action =
+          'getField("GoBack' +
+          bkmarrp[ckWord] +
+          '").setFocus();this.zoomType = zoomtype.fitP';
+        var f = oDoc.addField(ckWord + i + p, "button", p, r);
+    
+        f.fillColor = color.transparent;
+        f.lineWidth = 1;
+        f.strokeColor = color[options.strpop2];
+        f.display = display.noPrint;
+        f.setAction("MouseUp", action);
       }
-      annots[i].destroy();
-  }
+      if(options.strpop1 == "Delete All Annots"){
+        annots[i].destroy();
+      }
+    }
 
-  var t = oDoc.addField("GoBack" + p, "button", p, [0, 18, 75, 0]);
-  t.buttonSetCaption("Go Back");
-  t.fillColor = color.yellow;
-  t.lineWidth = 1;
-  t.strokeColor = color.blue;
-  t.display = display.noPrint;
-  t.setAction(
+    var t = oDoc.addField("GoBack" + p, "button", p, [0, 18, 75, 0]);
+    t.buttonSetCaption("Go Back");
+    t.fillColor = color.yellow;
+    t.lineWidth = 1;
+    t.strokeColor = color.blue;
+    t.display = display.noPrint;
+    t.setAction(
       "MouseUp",
       'if(getField("Page").value.split(",").length >=3){this.getField("GoBack"+getField("Page").value.split(",")[getField("Page").value.split(",").length -2]).setFocus(); this.zoomType = zoomtype.fitP; getField("Page").value = getField("Page").value.split(",").splice(0,getField("Page").value.split(",").length-2).join(",")} else {app.alert("Cannot Go Further Back")}'
-  );
+    );
 
-  var k = oDoc.addField("Top" + p, "button", p, [85, 18, 160, 0]);
-  k.buttonSetCaption("Top");
-  k.fillColor = color.yellow;
-  k.lineWidth = 1;
-  k.strokeColor = color.blue;
-  k.display = display.noPrint;
-  k.setAction("MouseUp", 'getField("GoBack0").setFocus(); this.zoomType = zoomtype.fitP');
+    var k = oDoc.addField("Top" + p, "button", p, [85, 18, 160, 0]);
+    k.buttonSetCaption("Top");
+    k.fillColor = color.yellow;
+    k.lineWidth = 1;
+    k.strokeColor = color.blue;
+    k.display = display.noPrint;
+    k.setAction(
+      "MouseUp",
+      'getField("GoBack0").setFocus(); this.zoomType = zoomtype.fitP'
+    );
 
-  Gprogress.currentPage++;
+    Gprogress.currentPage++;
 
 
-  // Schedule the next page processing
-  //app.setTimeOut("processPage()", 5);
-
-  processPage();
-
-}catch (e) {
-  console.println("An error occurred on page " + p + ": " + e.message);
-}
+    processPage(options);
+  } catch (e) {
+    console.println("An error occurred on page " + p + ": " + e.message);
+  }
 }
