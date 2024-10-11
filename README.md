@@ -75,11 +75,7 @@ The general purpose of this plugin is to allow the same fuctionality as Bluebeam
 Autocad should have its "PDFSHX" varible set to 1 before publishing drawing set.
 PDF output from other programs may also work as long as there are annot objects in the locations of the desired links. 
 
-Currently there are restrictions on the Page naming (it must contain the character "-", be fewer than 9 total characters long and more than 2 characters long). 
-This will go away with the implimentation of user selected area for page names. It currently searches the bottom right corner of the page (the farthest 1/15th of the page and the lower 1/15th of the page) for page names that match the critiea, problems arise if other text in this area matches. 
 A Go-Back button and a Top button are created for convienance. Bookmarks are created that match the found page name. 
-
-Be aware all annots will be deleted after Linker has ran.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -98,8 +94,6 @@ Adobe Acrobat with javascripts enabled
 
 ### Installation
 
-_Below is an example of how you can instruct your audience on installing and setting up your app. This template doesn't rely on any external dependencies or services._
-
 1. Place Link Maker Plugin.js into your Adobe Installation folder inside the Javascripts Folder an example of this File path might be "C:\Program Files (x86)\Adobe\Acrobat 2017\Acrobat\Javascripts" Your may be different depending on your install.
 2. Close and Reopen Acrobat
 
@@ -110,7 +104,7 @@ _Below is an example of how you can instruct your audience on installing and set
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-Use this space to show useful examples of how a project can be used. Additional screenshots, code examples and demos work well in this space. You may also link to more resources.
+Script can Handle Mixed Page sizes and will create Red Annot boxes on the first unique page size, arrange annot around page label on each generated annot.
 
 _For more examples, please refer to the [Documentation](https://example.com)_
 

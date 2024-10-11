@@ -613,6 +613,7 @@ var Gbkm;
 var GParentoDoc;
 var GtotalPages;
 var Gprogress;
+var PageTitleAnnots = [];
 
 var userOptions = {};
 function showOptionsDialog() {
@@ -746,18 +747,14 @@ function getRectangleCoordinates(doc) {
   var coordinates = [];
 
   function pollForChanges(doc) {
-    if (typeof doc.selectedAnnots != "undefined") {
-      var rectAnnot = doc.selectedAnnots[0];
 
-      if (doc.selectedAnnots.length > 0) {
-        coordinates = rectAnnot.rect;
-      } else {
-        return false;
-      }
-
-      //return coordinates;
       destroybookmarks(doc);
-      var BookmarkPage = createbookmarks(doc, coordinates, rectAnnot);
+      var coordinates = searchAnnotationsAndSaveRect();
+      if(Object.keys(coordinates).length ===0){
+        UniquePages();
+        return;
+      }else{
+      var BookmarkPage = createbookmarks(doc, coordinates);
   
       if(BookmarkPage != "NOANNOTS"){
       var root = doc.bookmarkRoot.children[0];
@@ -813,7 +810,6 @@ function getRectangleCoordinates(doc) {
                 this.removeField(fieldName);
             }
         }
-            rectAnnot.destroy();
             CheckAnnos(doc,dialogConfirmed[1]);
   
         }else{   return null;}
@@ -821,36 +817,24 @@ function getRectangleCoordinates(doc) {
         app.alert("Rectangle selection canceled. Please try again.", 1);
         return null;
       }}
-    } else {
-      var rectAnnot = doc.selectedAnnots;
-
-      rectAnnot = this.addAnnot({
-        type: "Square",
-        rect: initialCoordinates,
-        page: this.pageNum,
-        strokeColor: color.red,
-        fillColor: color.transparent,
-        author: "User",
-      });
-
-      rectAnnot.setProps({
-        readOnly: false,
-        hidden: false,
-      });
-      app.alert(
-        "No annotations selected! Place Rectangle over page name area, Rectanlge must be selected prior to running Create Links again"
-      );
-      return false;
     }
   }
   // Start polling for changes
   pollForChanges(doc);
 }
-function createbookmarks(oDoc, region, rectAnnot) {
+function createbookmarks(oDoc, regions) {
   var root = oDoc.bookmarkRoot.children[0];
   Gbkmarrp = [];
 
   for (var p = oDoc.numPages - 1; p >= 0; p--) {
+
+    var pageSize = this.getPageBox("Crop", p); // Get the Crop box size
+    var pageWidth = pageSize[2] - pageSize[0]; // Calculate width
+    var pageHeight = pageSize[1] - pageSize[3]; // Calculate height
+    var dimensions = pageWidth + ',' + pageHeight; 
+
+   var region = regions[dimensions][0].rect;
+
     this.setPageAction({
       nPage: p,
       cTrigger: "Open",
@@ -935,9 +919,9 @@ function createbookmarks(oDoc, region, rectAnnot) {
 
       // Perform the comparison between transformed boxes
       if (true1 && true2 && true3 && true4) {
-        if (rectAnnot != annots[i]) {
+    
           Hiannot = annots[i].contents;
-        }
+        
       }
     }
 
@@ -984,6 +968,11 @@ function processPage(options) {
     var pageNumber = Gprogress.currentPage;
 
     if (pageNumber >= GtotalPages) {
+      
+      for (var i = 0; i < PageTitleAnnots.length; i++) {
+        var annot = PageTitleAnnots[i].destroy(); // Access the annotation
+      }
+
       app.alert("Link Maker Completed");
       return;
     }
@@ -998,7 +987,110 @@ function processPage(options) {
     app.alert("An error occurred on page " + pageNumber + ": " + e.message);
   }
 }
+function searchAnnotationsAndSaveRect() {
+  var annotationsData = {};
+  var pageCount = this.numPages; // Get the total number of pages
 
+  // Iterate through each page
+  for (var pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+      var annotCount = this.getAnnots(pageIndex); // Get annotations on the current page
+
+      // Check if there are annotations on this page
+      if (annotCount) {
+          // Get the size of the current page
+          var pageSize = this.getPageBox("Crop", pageIndex); // Get the Crop box size
+          var pageWidth = pageSize[2] - pageSize[0]; // Calculate width
+          var pageHeight = pageSize[1] - pageSize[3]; // Calculate height
+          var dimensions = pageWidth + ',' + pageHeight; // Create dimension key for the page
+
+          for (var i = 0; i < annotCount.length; i++) {
+              var annot = annotCount[i]; // Access the annotation
+
+              // Check if the annotation is authored by "PageTitle"
+              if (annot.author == "PageTitle") {
+                  var pageNumber = annot.page; // Get the page number
+                  var rect = annot.rect; // Get the rectangle coordinates
+                  PageTitleAnnots.push(annot);
+                  // Store the rect in an associative array, using page dimensions
+                  if (!annotationsData[dimensions]) {
+                      annotationsData[dimensions] = [];
+                  }
+                  annotationsData[dimensions].push({
+                      page: pageNumber,
+                      rect: rect
+                  });
+              } 
+          }
+      }
+  }
+
+  // Log the associative array to see the saved data
+  return annotationsData; // Return the associative array for further use
+}
+function UniquePages() {
+  // Create an array to hold unique page sizes
+  var uniquePageSizes = [];
+  var pageCount = this.numPages;
+
+  // Iterate through each page to find unique sizes
+  for (var i = 0; i < pageCount; i++) {
+      var pageSize = this.getPageBox("Crop", i); // Get the Crop box size
+      var width = pageSize[2] - pageSize[0]; // Calculate width
+      var height = pageSize[1] - pageSize[3]; // Calculate height
+
+      // Validate that width and height are valid numbers
+      if (width > 0 && height > 0) {
+          var pageDimensions = width + ',' + height; // Width, Height as a string
+
+          // Check if this size is already in the uniquePageSizes array
+          if (uniquePageSizes.indexOf(pageDimensions) === -1) {
+              uniquePageSizes.push(pageDimensions); // Add to unique sizes
+          }
+      }
+  }
+
+  // If we found unique sizes, create an annotation on each unique page
+  if (uniquePageSizes.length > 0) {
+      for (var k = 0; k < uniquePageSizes.length; k++) {
+          // Find the first page that matches the current unique size
+          var matchingPage = -1;
+          for (var j = 0; j < pageCount; j++) {
+              var currentSize = this.getPageBox("Crop", j);
+              var currentWidth = currentSize[2] - currentSize[0];
+              var currentHeight = currentSize[1] - currentSize[3];
+              var currentDimensions = currentWidth + ',' + currentHeight;
+
+              // Check if current page size matches the current unique size
+              if (currentDimensions === uniquePageSizes[k]) {
+                  matchingPage = j; // Save the page number
+                  break;
+              }
+          }
+
+          // Define the annotation properties for each unique size
+          var annotRect = [100, 200, 400, 300]; // Define the rectangle for the annotation [left, bottom, right, top]
+
+          // Create the annotation for the matched page
+          if (matchingPage !== -1) {
+              this.addAnnot({
+                  type: "Square",
+                  page: matchingPage,
+                  author: "PageTitle",
+                  strokeColor: color.red,
+                  fillColor: color.transparent,
+                  hidden: false,
+                  rect: annotRect
+              });
+
+              // Alert the user with the page number where the annotation was created
+              app.alert("Annotation created on page " + (matchingPage + 1) + " with unique size: " + uniquePageSizes[k]);
+          }
+      }
+  } else {
+      app.alert("No unique page sizes found in the document.");
+  }
+}
+  
 function makelinks(bkmarr, p, annots, oDoc, bkmarrp, options) {
   try {
     for (var i = 0; i < annots.length; i++) {
