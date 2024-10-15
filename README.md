@@ -90,7 +90,7 @@ A Go-Back button and a Top button are created for convienance. Bookmarks are cre
 
 Adobe Acrobat with javascripts enabled 
 
-  <img src="https://github.com/terrible-terry/SHX-Acrobat-Batch-Linker-main/Adobe Settings.png" alt="image" />
+  <img src="https://github.com/terrible-terry/SHX-Acrobat-Batch-Linker-main/blob/1d8e9ccf6efa9af75b5278cbf93f2af319c417dd/Adobe%20Settings.png" alt="image" />
 
 ### Installation
 
@@ -106,7 +106,7 @@ Adobe Acrobat with javascripts enabled
 
 Script can Handle Mixed Page sizes and will create Red Annot boxes on the first unique page size, arrange annot around page label on each generated annot.
 
-  <img src="https://github.com/terrible-terry/SHX-Acrobat-Batch-Linker-main/Example.gif" alt="image" />
+  <img src="https://github.com/terrible-terry/SHX-Acrobat-Batch-Linker-main/blob/1d8e9ccf6efa9af75b5278cbf93f2af319c417dd/Example.gif" alt="image" />
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
